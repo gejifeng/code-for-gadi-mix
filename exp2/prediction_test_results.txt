@@ -1,0 +1,23 @@
+Precision, N, Alpha, Output
+fp32, 180, 0.010151, Parameters: alpha = 0.010151, w = 0.100000
+Matrix dimensions: 5832000 x 5832000, nnz = 40629600
+Computing required matrices...
+Matrix transpose completed: 5832000 x 5832000 -> 5832000 x 5832000
+Matrix computation completed.
+AH: 5832000 x 5832000, nnz = 40629600
+S: 5832000 x 5832000, nnz = 40629600
+ASX: 5832000 x 5832000, nnz = 40629600
+ALPHA_I_MINUS_S: 5832000 x 5832000, nnz = 40629600
+GPU Memory Usage:
+  Used: 2361.00 MB
+  Free: 78676.75 MB
+  Total: 81037.75 MB
+
+=== Running Single-Precision Solver ===
+Half-precision solver: res = 9.750879e-07, iter = 366
+Single-precision iterations: 366
+Single-precision time: 6.3859 seconds
+GPU Memory Usage:
+  Used: 2361.00 MB
+  Free: 78676.75 MB
+  Total: 81037.75 MB
