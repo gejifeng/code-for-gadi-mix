@@ -136,12 +136,12 @@ This folder contains the Mixed-Precision GMRES solver used for comparison.
 If you use this code in your research, please cite our paper:
 
 ```bibtex
-<!-- @article{YourPaper2025,
-  title={Title of the Paper},
-  author={Author Names},
-  journal={Journal Name},
-  year={2025}
-} -->
+@article{,
+  title={},
+  author={},
+  journal={},
+  year={}
+}
 ```
 
 ## License
