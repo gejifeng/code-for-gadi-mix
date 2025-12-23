@@ -14,6 +14,22 @@ This repository contains the source code and scripts for the numerical experimen
 - **C++ Compiler**: Must support C++17 (e.g., `nvcc`, `g++`).
 - **Python 3**: Required for running data generation and testing scripts.
 
+## Environment Setup
+
+It is recommended to use a Conda environment to manage dependencies.
+
+1. **Create and activate a new Conda environment:**
+   ```bash
+   conda create -n gadi_env python=3.12
+   conda activate gadi_env
+   ```
+
+2. **Install Python dependencies:**
+   A `requirements.txt` file is provided to install the necessary Python packages (NumPy, SciPy).
+   ```bash
+   pip install -r requirements.txt
+   ```
+
 ## Installation
 
 1. **Clone the repository:**
@@ -33,6 +49,21 @@ This repository contains the source code and scripts for the numerical experimen
    ```bash
    make clean
    ```
+
+## Running All Experiments
+
+The `run_all_experiments.py` script automates the process of generating matrices, compiling the code, and running all experiments (Exp1, Exp2, Exp3).
+
+To run all experiments:
+```bash
+python run_all_experiments.py
+```
+
+This script will:
+1. Check for prerequisites (Python packages, CUDA).
+2. Build the project using `make`.
+3. Generate test matrices for each experiment if they don't exist.
+4. Run the experiments and log the results to `all_experiments_results.txt`.
 
 ## Matrix Generation
 
