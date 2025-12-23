@@ -1,3 +1,6 @@
 *.mtx
 *.exe
 *.tex
+*.png
+
+tmp_test_exp2/

@@ -14,9 +14,9 @@ CUDA_DEVICE = "5"
 
 PRECISIONS = ["bf16", "fp32", "fp64"]
 EXECUTABLES = {
-    "bf16": "./gadi_bf16",
-    "fp32": "./gadi_fp32",
-    "fp64": "./gadi_fp64"
+    "bf16": "./gadi_bf16.exe",
+    "fp32": "./gadi_fp32.exe",
+    "fp64": "./gadi_fp64.exe"
 }
 OUTPUT_PATTERNS = {
     "bf16": r"Half-precision iterations: (\d+)",
@@ -26,9 +26,9 @@ OUTPUT_PATTERNS = {
 
 # Initial alphas for N=50
 current_alphas = {
-    "bf16": 0.3,
-    "fp32": 0.2,
-    "fp64": 0.6
+    "bf16": 0.01,
+    "fp32": 0.01,
+    "fp64": 0.01
 }
 
 def compile_code():

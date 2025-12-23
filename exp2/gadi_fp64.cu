@@ -428,8 +428,8 @@ int double_precision_solver(cusparseHandle_t cusparseHandle, cublasHandle_t cubl
         
         // r2 = (2-w) * alpha * (alpha*I - S) * r1
         // First: eye_r1 = alpha * I * r1 = alpha * r1
-        CHECK_CUDA(cudaMemcpy(d_eye_r1, d_r1, n * sizeof(double), cudaMemcpyDeviceToDevice));
-        CHECK_CUBLAS(cublasDscal(cublasHandle, n, &alpha_param, d_eye_r1, 1));
+        // CHECK_CUDA(cudaMemcpy(d_eye_r1, d_r1, n * sizeof(double), cudaMemcpyDeviceToDevice));
+        CHECK_CUBLAS(cublasDscal(cublasHandle, n, &alpha_param, d_r1, 1));
         
         // Then: temp = S * r1
         CHECK_CUSPARSE(cusparseSpMV(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE,
@@ -437,12 +437,12 @@ int double_precision_solver(cusparseHandle_t cusparseHandle, cublasHandle_t cubl
                                     CUDA_R_64F, CUSPARSE_SPMV_ALG_DEFAULT, dBuffer1));
         
         // r2 = alpha * r1 - S * r1 = eye_r1 - temp
-        CHECK_CUBLAS(cublasDaxpy(cublasHandle, n, &neg_one, d_temp, 1, d_eye_r1, 1));
+        CHECK_CUBLAS(cublasDaxpy(cublasHandle, n, &neg_one, d_temp, 1, d_r1, 1));
         
         // r2 = (2-w) * alpha * (alpha*I - S) * r1
         double factor = (2.0 - w) * alpha_param;
-        CHECK_CUBLAS(cublasDscal(cublasHandle, n, &factor, d_eye_r1, 1));
-        CHECK_CUDA(cudaMemcpy(d_r2, d_eye_r1, n * sizeof(double), cudaMemcpyDeviceToDevice));
+        CHECK_CUBLAS(cublasDscal(cublasHandle, n, &factor, d_r1, 1));
+        CHECK_CUDA(cudaMemcpy(d_r2, d_r1, n * sizeof(double), cudaMemcpyDeviceToDevice));
         
         // r3 = CG_solve(ASS, r2) in double precision
         total_cg_iters += cg_double_precision1(cusparseHandle, cublasHandle, AIMS, AIPS, d_r2, d_r3);

@@ -7,7 +7,23 @@ import time
 
 # Configuration
 EXP1_SIZES = [960, 2560, 4096, 8192, 10000]
+EXP1_BF16_ALPHA_MAP = {
+    960: 0.88,
+    2560: 0.9167,
+    4096: 0.9386,
+    8192: 0.9718,
+    10000: 0.9814
+}
 EXP2_SIZES = [180, 256, 320, 360, 400, 450, 512]
+EXP2_ALPHA_MAP = {
+    180: 0.003348,
+    256: 0.002597,
+    320: 0.002243,
+    360: 0.002086,
+    400: 0.001961,
+    450: 0.001836,
+    512: 0.001714
+}
 EXP3_SIZES = [1024, 2048, 4096, 5120, 8192]
 
 # Paths
@@ -180,14 +196,19 @@ def run_experiment_1():
         # 4. Gadi (Mixed Precision)
         # User said: "use mixed precision gadi... all omega 0.1, all alpha 0.95"
         # We run BF16 and FP32 variants as "mixed precision".
-        alpha = 0.95
+        default_alpha = 0.95
         omega = 0.1
         
         for prec in ["bf16", "fp32", "fp64"]:
             exe = os.path.join(exp_dir, f"gadi_{prec}.exe")
             if not os.path.exists(exe): continue
             
-            log(f"Running Gadi {prec.upper()}...")
+            if prec == "bf16":
+                alpha = EXP1_BF16_ALPHA_MAP.get(size, default_alpha)
+            else:
+                alpha = default_alpha
+
+            log(f"Running Gadi {prec.upper()} (alpha={alpha})...")
             # gadi_xx.exe <mtx> <alpha> <omega>
             cmd = [exe, mtx_file, str(alpha), str(omega)]
             out, rc = run_command(cmd)
@@ -198,9 +219,9 @@ def run_experiment_2():
     log("\n=== Running Experiment 2 (3D) ===")
     exp_dir = os.path.join(ROOT_DIR, "exp2")
     
-    # Load Alpha Maps
-    float_map = load_alpha_map(os.path.join(ROOT_DIR, "tmp", "float_info_exp2.txt"))
-    double_map = load_alpha_map(os.path.join(ROOT_DIR, "tmp", "double_info_exp2.txt"))
+    # Use hardcoded Alpha Maps
+    float_map = EXP2_ALPHA_MAP
+    double_map = EXP2_ALPHA_MAP
     
     for size in EXP2_SIZES:
         log(f"\n--- Size: {size} ---")
