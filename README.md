@@ -167,11 +167,15 @@ This folder contains the Mixed-Precision GMRES solver used for comparison.
 If you use this code in your research, please cite our paper:
 
 ```bibtex
-@article{,
-  title={},
-  author={},
-  journal={},
-  year={}
+@article{ge2025mixedgadi,
+   title={Mixed Precision General Alternating-Direction Implicit Method for Solving Large Sparse Linear Systems},
+   author={Ge, Jifeng and Vieubl{\'e}, Bastien and Zhang, Juan},
+   journal={arXiv preprint arXiv:2512.21164},
+   year={2025},
+   doi={10.48550/arXiv.2512.21164},
+   archivePrefix={arXiv},
+   eprint={2512.21164},
+   primaryClass={math.NA}
 }
 ```
 
