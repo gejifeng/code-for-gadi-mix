@@ -340,7 +340,7 @@ int cg_float_precision(cusparseHandle_t cusparseHandle, cublasHandle_t cublasHan
     float pAp_float = 0.0f;
     float dot_r_float = 0.0f;
 
-    float rsnew = 1.0f;
+    float rsnew = rsold_float;
     float beta = 0.0f;
     float alpha1 = 0.0f;
     float neg_alpha = 0.0f;
@@ -462,9 +462,12 @@ int cg_float_precision(cusparseHandle_t cusparseHandle, cublasHandle_t cublasHan
     if (dBuffer) cudaFree(dBuffer);
     CHECK_CUSPARSE(cusparseDestroySpMat(A_mat_float));
 
-//    printf("CG half precision completed in %d iterations with residual %e\n", iter, sqrt(rsnew));
-    
-    return iter;
+    int performed_iters = (iter < max_iter) ? (iter + 1) : iter;
+    double final_residual = sqrt(static_cast<double>(rsnew));
+    const char *status = final_residual < tol ? "converged" : (iter < max_iter ? "stopped" : "max_iter");
+    printf("[CG][FP32][AH] iterations=%d residual=%e status=%s\n", performed_iters, final_residual, status);
+
+    return performed_iters;
 }
 
 // CG solver in float precision (using manual implementations)
@@ -528,7 +531,7 @@ int cg_float_precision1(cusparseHandle_t cusparseHandle, cublasHandle_t cublasHa
     float pAp_float = 0.0f;
     float dot_r_float = 0.0f;
 
-    float rsnew = 1.0f;
+    float rsnew = rsold_float;
     float beta = 0.0f;
     float alpha1 = 0.0f;
     float neg_alpha = 0.0f;
@@ -663,9 +666,12 @@ int cg_float_precision1(cusparseHandle_t cusparseHandle, cublasHandle_t cublasHa
     CHECK_CUSPARSE(cusparseDestroySpMat(AIPS_mat));
     CHECK_CUSPARSE(cusparseDestroySpMat(AIMS_mat));
 
-//    printf("CG half precision completed in %d iterations with residual %e\n", iter, sqrt(rsnew));
-    
-    return iter;
+    int performed_iters = (iter < max_iter) ? (iter + 1) : iter;
+    double final_residual = sqrt(static_cast<double>(rsnew));
+    const char *status = final_residual < tol ? "converged" : (iter < max_iter ? "stopped" : "max_iter");
+    printf("[CG][FP32][ASS] iterations=%d residual=%e status=%s\n", performed_iters, final_residual, status);
+
+    return performed_iters;
 }
 
 // Half-precision iterative solver
@@ -740,6 +746,7 @@ int float_precision_solver(cusparseHandle_t cusparseHandle, cublasHandle_t cubla
 
         CHECK_CUBLAS(cublasDnrm2(cublasHandle, n, d_r, 1, &r_norm));
         res = r_norm / nr0;
+        printf("[Outer][FP32] iter=%d residual=%e\n", kk + 1, res);
         
         // Convert r to half precision
         double_to_float_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_r, d_r_float, n);
@@ -824,7 +831,7 @@ int float_precision_solver(cusparseHandle_t cusparseHandle, cublasHandle_t cubla
     if (dBuffer) cudaFree(dBuffer);
     if (dBuffer1) cudaFree(dBuffer1);
     
-    printf("Half-precision solver: res = %e, iter = %d\n", res, kk);
+    printf("Single-precision solver: res = %e, iter = %d\n", res, kk);
     printf("Total CG iterations: %lld\n", total_cg_iters);
     
     // Cleanup

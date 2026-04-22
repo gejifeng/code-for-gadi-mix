@@ -163,6 +163,7 @@ int cg_double_precision(cusparseHandle_t cusparseHandle, cublasHandle_t cublasHa
     
     // rsold = r^T * r
     CHECK_CUBLAS(cublasDdot(cublasHandle, n, d_r, 1, d_r, 1, &rsold));
+    rsnew = rsold;
     
     // Create vector descriptors once before the loop
     cusparseDnVecDescr_t vecP, vecAp;
@@ -231,9 +232,12 @@ int cg_double_precision(cusparseHandle_t cusparseHandle, cublasHandle_t cublasHa
     if (dBuffer) cudaFree(dBuffer);
     CHECK_CUSPARSE(cusparseDestroySpMat(A_mat_double));
 
-//    printf("CG half precision completed in %d iterations with residual %e\n", iter, sqrt(rsnew));
-    
-    return iter;
+    int performed_iters = (iter < max_iter) ? (iter + 1) : iter;
+    double final_residual = sqrt(rsnew);
+    const char *status = final_residual < tol ? "converged" : (iter < max_iter ? "stopped" : "max_iter");
+    printf("[CG][FP64][AH] iterations=%d residual=%e status=%s\n", performed_iters, final_residual, status);
+
+    return performed_iters;
 }
 
 // CG solver in double precision
@@ -263,6 +267,7 @@ int cg_double_precision1(cusparseHandle_t cusparseHandle, cublasHandle_t cublasH
     
     // rsold = r^T * r
     CHECK_CUBLAS(cublasDdot(cublasHandle, n, d_r, 1, d_r, 1, &rsold));
+    rsnew = rsold;
     
     // Create vector descriptors once before the loop
     cusparseDnVecDescr_t vecP, vecAp, vecTmp;
@@ -347,9 +352,12 @@ int cg_double_precision1(cusparseHandle_t cusparseHandle, cublasHandle_t cublasH
     CHECK_CUSPARSE(cusparseDestroySpMat(AIPS_mat));
     CHECK_CUSPARSE(cusparseDestroySpMat(AIMS_mat));
 
-//    printf("CG half precision completed in %d iterations with residual %e\n", iter, sqrt(rsnew));
-    
-    return iter;
+    int performed_iters = (iter < max_iter) ? (iter + 1) : iter;
+    double final_residual = sqrt(rsnew);
+    const char *status = final_residual < tol ? "converged" : (iter < max_iter ? "stopped" : "max_iter");
+    printf("[CG][FP64][ASS] iterations=%d residual=%e status=%s\n", performed_iters, final_residual, status);
+
+    return performed_iters;
 }
 
 // Double-precision iterative solver
@@ -454,6 +462,7 @@ int double_precision_solver(cusparseHandle_t cusparseHandle, cublasHandle_t cubl
         double r_norm;
         CHECK_CUBLAS(cublasDnrm2(cublasHandle, n, d_r, 1, &r_norm));
         res = r_norm / nr0;
+        printf("[Outer][FP64] iter=%d residual=%e\n", kk + 1, res);
         
         kk++;
     }

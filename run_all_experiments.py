@@ -29,10 +29,15 @@ EXP3_SIZES = [1024, 2048, 4096, 5120, 8192]
 # Paths
 ROOT_DIR = os.getcwd()
 RESULTS_FILE = os.path.join(ROOT_DIR, "all_experiments_results.txt")
+ITERATION_LOG_FILE = os.path.join(ROOT_DIR, "all_experiments_iteration_logs.txt")
 
 def log(message):
     print(message)
     with open(RESULTS_FILE, "a") as f:
+        f.write(message + "\n")
+
+def log_to_file_only(message, file_path):
+    with open(file_path, "a") as f:
         f.write(message + "\n")
 
 def check_prerequisites():
@@ -76,12 +81,15 @@ def check_prerequisites():
 
 def parse_output(output):
     """
-    Parses stdout to extract time, success status, and memory usage.
+    Parses stdout to extract time, success status, memory usage,
+    outer iteration count, and total CG iteration count.
     Adapts to different output formats from cudss, mix_gmres, gadi.
     """
     time_sec = "N/A"
     memory_mb = "N/A"
     success = "Unknown"
+    iter_count = "N/A"
+    total_cg_iters = "N/A"
     
     # --- Time Parsing ---
     # 1. Try to find Chinese "耗时: X ms" (common in cudss output)
@@ -120,8 +128,47 @@ def parse_output(output):
         success = "Yes"
     elif "failed" in output_lower or "not converged" in output_lower:
         success = "No"
-        
-    return time_sec, success, memory_mb
+
+    iter_match = re.search(r"(?:Half|Single|Double)-precision iterations:\s*(\d+)", output)
+    if iter_match:
+        iter_count = iter_match.group(1)
+    else:
+        solver_iter_match = re.search(r"(?:Half|Single|Double)-precision solver:.*?iter\s*=\s*(\d+)", output)
+        if solver_iter_match:
+            iter_count = solver_iter_match.group(1)
+
+    total_cg_match = re.search(r"Total CG iterations:\s*(\d+)", output)
+    if total_cg_match:
+        total_cg_iters = total_cg_match.group(1)
+
+    return time_sec, success, memory_mb, iter_count, total_cg_iters
+
+def log_iteration_header(context):
+    log_to_file_only(f"\n=== {context} ===", ITERATION_LOG_FILE)
+
+def log_captured_output(context, output):
+    stripped = output.strip()
+    if not stripped:
+        return
+    log_iteration_header(context)
+    for line in stripped.splitlines():
+        if "[Outer]" in line or "[CG]" in line:
+            log_to_file_only(f"[{context}] {line}", ITERATION_LOG_FILE)
+
+def log_gadi_summary(label, output, return_code=None, experiment=None, size=None):
+    context_parts = []
+    if experiment is not None:
+        context_parts.append(experiment)
+    if size is not None:
+        context_parts.append(f"size={size}")
+    context_parts.append(label)
+    context = " | ".join(context_parts)
+
+    log_captured_output(context, output)
+    t, s, m, iter_count, total_cg_iters = parse_output(output)
+    log(f"{label}: Time={t}s, Success={s}, Mem={m}MB, Iters={iter_count}, Total CG Iters={total_cg_iters}")
+    if return_code not in (None, 0):
+        log(f"{label} exited with return code {return_code}.")
 
 def run_command(cmd_args, cwd=ROOT_DIR):
     try:
@@ -136,6 +183,15 @@ def run_command(cmd_args, cwd=ROOT_DIR):
         return result.stdout, result.returncode
     except Exception as e:
         return str(e), -1
+
+def run_gmres_variant(label, executable, mtx_file, restart, max_iters, tol):
+    log(f"Running {label}...")
+    cmd = [executable, mtx_file, "mgs", str(restart), str(max_iters), tol]
+    out, rc = run_command(cmd)
+    t, s, m, _, _ = parse_output(out)
+    log(f"{label}: Time={t}s, Success={s}, Mem={m}MB")
+    if rc != 0:
+        log(f"{label} exited with return code {rc}.")
 
 def load_alpha_map(filename):
     mapping = {}
@@ -181,17 +237,12 @@ def run_experiment_1():
         log("Running cuDSS FP64...")
         cmd = ["./cudss_fp64/cudss_solver.exe", mtx_file]
         out, rc = run_command(cmd)
-        t, s, m = parse_output(out)
+        t, s, m, _, _ = parse_output(out)
         log(f"cuDSS FP64: Time={t}s, Success={s}, Mem={m}MB")
         
-        # 3. Mix GMRES
-        log("Running Mix GMRES...")
-        # mix_gmres_test.exe <mtx> <mgs> <restart> <max_iters> <rtol>
-        # mgs=1 (MGS), restart=50, max_iter=20000, rtol=1e-10
-        cmd = ["./mix_gmres/mix_gmres_test.exe", mtx_file, "1", "50", "20000", "1e-10"]
-        out, rc = run_command(cmd)
-        t, s, m = parse_output(out)
-        log(f"Mix GMRES: Time={t}s, Success={s}, Mem={m}MB")
+        # 3. GMRES baselines
+        run_gmres_variant("Mix GMRES", "./mix_gmres/mix_gmres_test.exe", mtx_file, 50, 20000, "1e-10")
+        run_gmres_variant("FP64 GMRES", "./fp64_gmres/fp64_gmres_test.exe", mtx_file, 50, 20000, "1e-10")
         
         # 4. Gadi (Mixed Precision)
         # User said: "use mixed precision gadi... all omega 0.1, all alpha 0.95"
@@ -212,8 +263,7 @@ def run_experiment_1():
             # gadi_xx.exe <mtx> <alpha> <omega>
             cmd = [exe, mtx_file, str(alpha), str(omega)]
             out, rc = run_command(cmd)
-            t, s, m = parse_output(out)
-            log(f"Gadi {prec.upper()}: Time={t}s, Success={s}, Mem={m}MB")
+            log_gadi_summary(f"Gadi {prec.upper()}", out, rc, experiment="Exp1", size=size)
 
 def run_experiment_2():
     log("\n=== Running Experiment 2 (3D) ===")
@@ -241,16 +291,12 @@ def run_experiment_2():
         log("Running cuDSS FP32...")
         cmd = ["./cudss_fp32/cudss_solver.exe", mtx_file]
         out, rc = run_command(cmd)
-        t, s, m = parse_output(out)
+        t, s, m, _, _ = parse_output(out)
         log(f"cuDSS FP32: Time={t}s, Success={s}, Mem={m}MB")
         
-        # 3. Mix GMRES (rtol=1e-6)
-        log("Running Mix GMRES...")
-        # mgs=1, restart=50, max_iter=20000, rtol=1e-6
-        cmd = ["./mix_gmres/mix_gmres_test.exe", mtx_file, "1", "50", "20000", "1e-6"]
-        out, rc = run_command(cmd)
-        t, s, m = parse_output(out)
-        log(f"Mix GMRES: Time={t}s, Success={s}, Mem={m}MB")
+        # 3. GMRES baselines (rtol=1e-6)
+        run_gmres_variant("Mix GMRES", "./mix_gmres/mix_gmres_test.exe", mtx_file, 50, 20000, "1e-6")
+        run_gmres_variant("FP64 GMRES", "./fp64_gmres/fp64_gmres_test.exe", mtx_file, 50, 20000, "1e-6")
         
         # 4. Gadi
         omega = 0.1
@@ -260,16 +306,14 @@ def run_experiment_2():
         log(f"Running Gadi FP32 (alpha={alpha_fp32})...")
         cmd = [os.path.join(exp_dir, "gadi_fp32.exe"), mtx_file, str(alpha_fp32), str(omega)]
         out, rc = run_command(cmd)
-        t, s, m = parse_output(out)
-        log(f"Gadi FP32: Time={t}s, Success={s}, Mem={m}MB")
+        log_gadi_summary("Gadi FP32", out, rc, experiment="Exp2", size=size)
         
         # Gadi FP64
         alpha_fp64 = double_map.get(size, 0.95)
         log(f"Running Gadi FP64 (alpha={alpha_fp64})...")
         cmd = [os.path.join(exp_dir, "gadi_fp64.exe"), mtx_file, str(alpha_fp64), str(omega)]
         out, rc = run_command(cmd)
-        t, s, m = parse_output(out)
-        log(f"Gadi FP64: Time={t}s, Success={s}, Mem={m}MB")
+        log_gadi_summary("Gadi FP64", out, rc, experiment="Exp2", size=size)
         
         # Gadi BF16
         if size <= 450:
@@ -279,8 +323,7 @@ def run_experiment_2():
         log(f"Running Gadi BF16 (alpha={alpha_bf16})...")
         cmd = [os.path.join(exp_dir, "gadi_bf16.exe"), mtx_file, str(alpha_bf16), str(omega)]
         out, rc = run_command(cmd)
-        t, s, m = parse_output(out)
-        log(f"Gadi BF16: Time={t}s, Success={s}, Mem={m}MB")
+        log_gadi_summary("Gadi BF16", out, rc, experiment="Exp2", size=size)
 
 def run_experiment_3():
     log("\n=== Running Experiment 3 (Complex Diffusion) ===")
@@ -305,15 +348,12 @@ def run_experiment_3():
         log("Running cuDSS FP32...")
         cmd = ["./cudss_fp32/cudss_solver.exe", mtx_file]
         out, rc = run_command(cmd)
-        t, s, m = parse_output(out)
+        t, s, m, _, _ = parse_output(out)
         log(f"cuDSS FP32: Time={t}s, Success={s}, Mem={m}MB")
         
-        # 3. Mix GMRES (rtol=1e-6)
-        log("Running Mix GMRES...")
-        cmd = ["./mix_gmres/mix_gmres_test.exe", mtx_file, "1", "50", "20000", "1e-6"]
-        out, rc = run_command(cmd)
-        t, s, m = parse_output(out)
-        log(f"Mix GMRES: Time={t}s, Success={s}, Mem={m}MB")
+        # 3. GMRES baselines (rtol=1e-6)
+        run_gmres_variant("Mix GMRES", "./mix_gmres/mix_gmres_test.exe", mtx_file, 50, 20000, "1e-6")
+        run_gmres_variant("FP64 GMRES", "./fp64_gmres/fp64_gmres_test.exe", mtx_file, 50, 20000, "1e-6")
         
         # 4. Gadi
         omega = 0.1
@@ -322,30 +362,30 @@ def run_experiment_3():
         log(f"Running Gadi FP32 (alpha=300)...")
         cmd = [os.path.join(exp_dir, "gadi_fp32.exe"), mtx_file, "300", str(omega)]
         out, rc = run_command(cmd)
-        t, s, m = parse_output(out)
-        log(f"Gadi FP32: Time={t}s, Success={s}, Mem={m}MB")
+        log_gadi_summary("Gadi FP32", out, rc, experiment="Exp3", size=size)
         
         # Gadi FP64 (alpha=300)
         log(f"Running Gadi FP64 (alpha=300)...")
         cmd = [os.path.join(exp_dir, "gadi_fp64.exe"), mtx_file, "300", str(omega)]
         out, rc = run_command(cmd)
-        t, s, m = parse_output(out)
-        log(f"Gadi FP64: Time={t}s, Success={s}, Mem={m}MB")
+        log_gadi_summary("Gadi FP64", out, rc, experiment="Exp3", size=size)
         
         # Gadi BF16 (alpha=270)
         log(f"Running Gadi BF16 (alpha=270)...")
         cmd = [os.path.join(exp_dir, "gadi_bf16.exe"), mtx_file, "270", str(omega)]
         out, rc = run_command(cmd)
-        t, s, m = parse_output(out)
-        log(f"Gadi BF16: Time={t}s, Success={s}, Mem={m}MB")
+        log_gadi_summary("Gadi BF16", out, rc, experiment="Exp3", size=size)
 
 def main():
     # Clear previous results
     if os.path.exists(RESULTS_FILE):
         os.remove(RESULTS_FILE)
+    if os.path.exists(ITERATION_LOG_FILE):
+        os.remove(ITERATION_LOG_FILE)
         
     log("Starting One-Click Test Script")
     log("==============================")
+    log(f"Iteration logs will be saved to {ITERATION_LOG_FILE}")
     
     check_prerequisites()
     

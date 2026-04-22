@@ -149,6 +149,19 @@ This folder contains the Mixed-Precision GMRES solver used for comparison.
 ./mix_gmres/mix_gmres_test.exe ./exp1/sylve108.mtx mgs 30 100 1e-6
 ```
 
+### 4. Comparison: FP64 GMRES (`fp64_gmres`)
+This folder contains a pure double-precision GMRES solver. Unlike `mix_gmres`, both the outer residual correction and the inner Arnoldi / GMRES iterations run in FP64.
+
+**Usage:**
+```bash
+./fp64_gmres/fp64_gmres_test.exe <matrix_file.mtx> mgs <restart> <max_iters> <rtol>
+```
+
+*Example:*
+```bash
+./fp64_gmres/fp64_gmres_test.exe ./exp1/sylve108.mtx mgs 30 100 1e-6
+```
+
 ## Folder Overview
 
 | Folder | Description |
@@ -159,6 +172,7 @@ This folder contains the Mixed-Precision GMRES solver used for comparison.
 | `exp2/` | **Experiment 2**: Benchmarks on 3D problems (`3d*.mtx`) |
 | `exp3/` | **Experiment 3**: Benchmarks on Complex Diffusion problems (`complex_diff*.mtx`) |
 | `mix_gmres/` | Mixed-Precision GMRES implementation for comparison |
+| `fp64_gmres/` | Pure double-precision GMRES implementation for comparison |
 | `gpr/` | Gaussian Process Regression scripts (used for parameter prediction) |
 | `debug/` | Debugging scripts |
 

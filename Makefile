@@ -1,4 +1,4 @@
-SUBDIRS = exp1 exp2 exp3 cudss_fp32 cudss_fp64 mix_gmres
+SUBDIRS = exp1 exp2 exp3 cudss_fp32 cudss_fp64 mix_gmres fp64_gmres
 
 .PHONY: all clean $(SUBDIRS)
 
